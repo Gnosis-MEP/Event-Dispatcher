@@ -40,6 +40,10 @@ class EventDispatcher(BaseService):
                 list(self.stream_sources)
             )
             self.all_events_consumer_group.create()
+
+        # block only for 10 ms, this way if a new stream is added to the group
+        # it should wait at most for 10 ms before reading considering this new stream
+        self.all_events_consumer_group.block = 10
         return self.all_events_consumer_group
 
     def add_buffer_stream_key(self, key):
@@ -79,9 +83,6 @@ class EventDispatcher(BaseService):
 
     def process_data(self):
         self.logger.debug('Processing DATA..')
-        # block only for 10 ms, this way if a new stream is added to the group
-        # it should wait at most for 10 ms before reading considering this new stream
-        self.all_events_consumer_group.block = 10
         stream_sources_events = self.all_events_consumer_group.read(count=1)
         for stream_key, event_list in stream_sources_events:
             control_flow = self.get_control_flow_for_stream_key(stream_key)
