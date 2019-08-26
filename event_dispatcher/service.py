@@ -4,6 +4,9 @@ from event_service_utils.services.base import BaseService
 from event_service_utils.schemas.internal_msgs import (
     BaseInternalMessage,
 )
+from event_service_utils.schemas.events import (
+    BaseEventMessage,
+)
 
 
 class EventDispatcher(BaseService):
@@ -20,29 +23,74 @@ class EventDispatcher(BaseService):
             stream_factory=stream_factory,
             logging_level=logging_level
         )
+        del self.service_stream
+        self.events_consumer_group_name = f'cg-{service_stream_key}'
+        # always have EVENT_DISPATCHER_STREAM_KEY as a input stream source
+        # and also the namespace buffers key as inputs as well
+        self.stream_sources = set({service_stream_key})
+        self.all_events_consumer_group = None
+        self._update_all_events_consumer_group()
 
-    def process_data(self):
-        self.logger.debug('Processing DATA..')
-        if not self.service_stream:
-            return
-        event_list = self.service_stream.read_events(count=1)
-        for event_tuple in event_list:
-            event_id, json_msg = event_tuple
-            self.logger.debug(f'Processing new data: {json_msg}')
-            # do something with json_msg
+    def _update_all_events_consumer_group(self):
+        if len(self.stream_sources) == 0:
+            self.all_events_consumer_group = None
+        else:
+            self.all_events_consumer_group = self.stream_factory.redis_db.consumer_group(
+                self.events_consumer_group_name,
+                list(self.stream_sources)
+            )
+            self.all_events_consumer_group.create()
+        return self.all_events_consumer_group
+
+    def add_buffer_stream_key(self, key):
+        self.stream_sources.add(key)
+        self._update_all_events_consumer_group()
+
+    def del_buffer_stream_key(self, key):
+        if key in self.stream_sources:
+            self.stream_sources.remove(key)
+        self._update_all_events_consumer_group()
 
     def process_action(self, action, event_data, json_msg):
         super(EventDispatcher, self).process_action(action, event_data, json_msg)
-        if action == 'someAction':
+        if action == 'updateControlFlow':
             # do some action
             pass
-        elif action == 'otherAction':
-            # do some other action
-            pass
+        elif action == 'addBufferStreamKey':
+            key = event_data['buffer_stream_key']
+            self.add_bufferstream_key(key)
+        elif action == 'delBufferStreamKey':
+            key = event_data['buffer_stream_key']
+            self.del_buffer_stream_key(key)
 
     def log_state(self):
         super(EventDispatcher, self).log_state()
-        self.logger.info(f'My service name is: {self.name}')
+        log_msg = '- Stream Sources:'
+        for k in self.stream_sources:
+            log_msg += f'\n-- {k}'
+        self.logger.debug(log_msg)
+
+    def log_dispatched_events(self, event_data, control_flow):
+        self.logger.debug(f'Dispatching event | | to => ')
+
+    def dispatch(self, event_data, control_flow):
+        # return self.get_destination_stream(destination).write_events(event)
+        pass
+
+    def process_data(self):
+        self.logger.debug('Processing DATA..')
+        # block only for 10 ms, this way if a new stream is added to the group
+        # it should wait at most for 10 ms before reading considering this new stream
+        self.all_events_consumer_group.block = 10
+        stream_sources_events = self.all_events_consumer_group.read(count=1)
+        for stream_key, event_list in stream_sources_events:
+            control_flow = self.get_control_flow_for_stream_key(stream_key)
+            for event_tuple in event_list:
+                event_id, json_msg = event_tuple
+                event_schema = BaseEventMessage(json_msg=json_msg)
+                event_data = event_schema.object_load_from_msg()
+                self.log_dispatched_events(event_data, control_flow)
+                self.dispatch(event_data, control_flow)
 
     def run(self):
         super(EventDispatcher, self).run()
