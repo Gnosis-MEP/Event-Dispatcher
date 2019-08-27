@@ -35,15 +35,11 @@ class EventDispatcher(BaseService):
         if len(self.stream_sources) == 0:
             self.all_events_consumer_group = None
         else:
-            self.all_events_consumer_group = self.stream_factory.redis_db.consumer_group(
-                self.events_consumer_group_name,
-                list(self.stream_sources)
-            )
-            self.all_events_consumer_group.create()
-
-        # block only for 10 ms, this way if a new stream is added to the group
-        # it should wait at most for 10 ms before reading considering this new stream
-        self.all_events_consumer_group.block = 10
+            self.all_events_consumer_group = self.stream_factory.create(
+                key=list(self.stream_sources), stype='manyKeyConsumer')
+        # block only for 1 ms, this way if a new stream is added to the group
+        # it should wait at most for 1 ms before reading and considering this new stream
+        self.all_events_consumer_group.block = 1
         return self.all_events_consumer_group
 
     def add_buffer_stream_key(self, key):
@@ -62,7 +58,7 @@ class EventDispatcher(BaseService):
             pass
         elif action == 'addBufferStreamKey':
             key = event_data['buffer_stream_key']
-            self.add_bufferstream_key(key)
+            self.add_buffer_stream_key(key)
         elif action == 'delBufferStreamKey':
             key = event_data['buffer_stream_key']
             self.del_buffer_stream_key(key)
@@ -75,15 +71,20 @@ class EventDispatcher(BaseService):
         self.logger.debug(log_msg)
 
     def log_dispatched_events(self, event_data, control_flow):
-        self.logger.debug(f'Dispatching event | | to => ')
+        self.logger.debug(f'Dispatching event | {event_data} | to => {control_flow}')
 
     def dispatch(self, event_data, control_flow):
         # return self.get_destination_stream(destination).write_events(event)
         pass
 
+    def get_control_flow_for_stream_key(self, stream_key):
+        return []
+
     def process_data(self):
-        self.logger.debug('Processing DATA..')
-        stream_sources_events = self.all_events_consumer_group.read(count=1)
+        stream_sources_events = list(self.all_events_consumer_group.read_stream_events_list(count=1))
+        if stream_sources_events:
+            self.logger.debug(f'Processing DATA.. {stream_sources_events}')
+
         for stream_key, event_list in stream_sources_events:
             control_flow = self.get_control_flow_for_stream_key(stream_key)
             for event_tuple in event_list:

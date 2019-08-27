@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from event_service_utils.streams.redis import RedisStreamFactory
+# from event_service_utils.streams.redis import RedisStreamFactory
+from event_dispatcher.streams import RedisStreamFactory
 
 from event_dispatcher.service import EventDispatcher
 
