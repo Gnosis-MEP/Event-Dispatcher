@@ -3,6 +3,7 @@ from event_service_utils.tests.mocked_streams import MockedStreamFactory, Mocked
 
 class ManyKeyConsumerGroupMocked():
     def __init__(self, keys, mocked_values):
+        self.keys = keys
         self._update_mocked_values(mocked_values)
         # self.mocked_values = {
         #     # key: MockedStreamAndConsumer(key=key, mocked_values=mocked_dict[key]) for key in keys

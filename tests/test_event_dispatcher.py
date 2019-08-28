@@ -1,3 +1,4 @@
+import uuid
 from unittest.mock import patch
 
 from event_service_utils.tests.base_test_case import MockedServiceStreamTestCase
@@ -7,8 +8,8 @@ from mocked_streams import ManyKeyConsumerMockedStreamFactory
 
 from event_dispatcher.service import EventDispatcher
 
-from event_service_utils.schemas.events import (
-    BaseEventMessage,
+from event_dispatcher.schemas import (
+    EventDispatcherBaseEventMessage
 )
 
 from event_dispatcher.conf import (
@@ -29,6 +30,10 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         SERVICE_CMD_KEY: [],
     }
 
+    def _mocked_event_message(self, schema_cls, **kwargs):
+        schema = schema_cls(**kwargs)
+        return prepare_event_msg_tuple(schema.dict)
+
     def prepare_mocked_stream_factory(self, mocked_dict):
         self.stream_factory = ManyKeyConsumerMockedStreamFactory(mocked_dict=self.mocked_streams_dict)
 
@@ -46,26 +51,117 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.assertTrue(mocked_process_action.called)
         self.service.process_action.assert_called_once_with(action, event_data, msg_tuple[1])
 
-    # @patch('event_dispatcher.service.EventDispatcher.process_action')
-    # def test_process_data_should_get_1_msg_from_each_buffer_stream(self, mocked_process_action):
-    #     event_data = {
-    #         'event_data': 'something',
+    @patch('event_dispatcher.service.EventDispatcher.add_buffer_stream_key')
+    def test_process_action_should_call_add_buffer_stream_key(self, mocked_add_buffer_stream_key):
+        action = 'addBufferStreamKey'
+        query_data = {
+            'buffer_stream_key': 'unique-buffer-key',
+        }
+        event_data = query_data.copy()
+        event_data.update({
+            'action': action,
+        })
+        msg_tuple = prepare_event_msg_tuple(event_data)
+
+        self.service.service_cmd.mocked_values = [msg_tuple]
+        self.service.process_cmd()
+        self.assertTrue(mocked_add_buffer_stream_key.called)
+        mocked_add_buffer_stream_key.assert_called_once_with(
+            query_data['buffer_stream_key'],
+        )
+
+    @patch('event_dispatcher.service.EventDispatcher.del_buffer_stream_key')
+    def test_process_action_should_call_del_buffer_stream_key(self, mocked_del_buffer_stream_key):
+        action = 'delBufferStreamKey'
+        query_data = {
+            'buffer_stream_key': 'unique-buffer-key',
+        }
+        event_data = query_data.copy()
+        event_data.update({
+            'action': action,
+        })
+        msg_tuple = prepare_event_msg_tuple(event_data)
+
+        self.service.service_cmd.mocked_values = [msg_tuple]
+        self.service.process_cmd()
+        self.assertTrue(mocked_del_buffer_stream_key.called)
+        mocked_del_buffer_stream_key.assert_called_once_with(
+            query_data['buffer_stream_key'],
+        )
+
+    @patch('event_dispatcher.service.EventDispatcher._update_all_events_consumer_group')
+    def test_add_buffer_stream_key_should_call_update_all_events_consumer_group(self, mocked_update):
+        self.service.add_buffer_stream_key('unique-buffer-key')
+        self.assertTrue(mocked_update.called)
+        mocked_update.assert_called_once()
+
+    def test_update_all_events_consumer_group_should_set_block_to_1ms(self):
+        self.service._update_all_events_consumer_group()
+        self.assertEqual(self.service.all_events_consumer_group.block, 1)
+
+    def test_update_all_events_consumer_group_should_have_same_keys_as_stream_sources(self):
+        stream_sources = set({SERVICE_STREAM_KEY, 'some-stream', 'another-stream'})
+        self.service.stream_sources = stream_sources
+        self.service._update_all_events_consumer_group()
+        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_sources))
+
+        self.service.stream_sources.remove('some-stream')
+        self.service._update_all_events_consumer_group()
+        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_sources))
+
+        self.service.stream_sources.add('some-other-stream')
+        self.service._update_all_events_consumer_group()
+        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_sources))
+
+    @patch('event_dispatcher.service.EventDispatcher.get_control_flow_for_stream_key')
+    @patch('event_dispatcher.service.EventDispatcher.dispatch')
+    def test_process_data_should_call_dispatch_events_and_ge_control_flow(self, mocked_dispatch, mocked_control_flow):
+        mocked_stream_sources = {
+            'buffer1': [
+                self._mocked_event_message(
+                    EventDispatcherBaseEventMessage, id='1', publisher_id='publisher_id1', source='source1'
+                ),
+                self._mocked_event_message(
+                    EventDispatcherBaseEventMessage, id='2', publisher_id='publisher_id1', source='source1'
+                ),
+            ],
+            'buffer2': [
+                self._mocked_event_message(
+                    EventDispatcherBaseEventMessage, id='3', publisher_id='publisher_id2', source='source1'
+                ),
+                self._mocked_event_message(
+                    EventDispatcherBaseEventMessage, id='4', publisher_id='publisher_id2', source='source1'
+                ),
+                self._mocked_event_message(
+                    EventDispatcherBaseEventMessage, id='5', publisher_id='publisher_id2', source='source1'
+                ),
+            ]
+        }
+        self.service.stream_sources = set(mocked_stream_sources.keys())
+        self.service._update_all_events_consumer_group()
+        self.service.all_events_consumer_group._update_mocked_values(mocked_stream_sources)
+
+        mocked_control_flow.return_value = []
+        self.service.process_data()
+        self.assertTrue(mocked_dispatch.called)
+        self.assertEqual(mocked_dispatch.call_count, 2)
+        self.assertTrue(mocked_control_flow.called)
+        self.assertEqual(mocked_dispatch.call_count, 2)
+
+    # @patch('event_dispatcher.service.EventDispatcher.update_controlflow')
+    # def test_process_action_should_call_del_buffer_stream_key(self, mocked_update_controlflow):
+    #     action = 'updateControlFlow'
+    #     query_data = {
     #     }
+    #     event_data = query_data.copy()
+    #     event_data.update({
+    #         'action': action,
+    #     })
     #     msg_tuple = prepare_event_msg_tuple(event_data)
 
-    #     mocked_values = {
-    #         'buffer1': [
-    #             prepare_event_msg_tuple({'event_data': 'b1-e1'}),
-    #             prepare_event_msg_tuple({'event_data': 'b1-e2'}),
-    #         ],
-    #         'buffer2': [
-    #             prepare_event_msg_tuple({'event_data': 'b2-e1'}),
-    #             prepare_event_msg_tuple({'event_data': 'b2-e2'}),
-    #             prepare_event_msg_tuple({'event_data': 'b2-e3'})
-    #         ]
-    #     }
-    #     self.service.all_events_consumer_group._update_mocked_values(mocked_values)
-
-    #     self.service.process_data()
-    #     self.assertTrue(mocked_process_action.called)
-        # self.service.process_action.assert_called_once_with(action, event_data, msg_tuple[1])
+    #     self.service.service_cmd.mocked_values = [msg_tuple]
+    #     self.service.process_cmd()
+    #     self.assertTrue(mocked_update_controlflow.called)
+    #     mocked_update_controlflow.assert_called_once_with(
+    #         query_data[''],
+    #     )
