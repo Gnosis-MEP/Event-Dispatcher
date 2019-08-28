@@ -4,9 +4,7 @@ from event_service_utils.services.base import BaseService
 from event_service_utils.schemas.internal_msgs import (
     BaseInternalMessage,
 )
-from event_service_utils.schemas.events import (
-    BaseEventMessage,
-)
+from event_dispatcher.schemas import EventDispatcherBaseEventMessage
 
 
 class EventDispatcher(BaseService):
@@ -89,7 +87,7 @@ class EventDispatcher(BaseService):
             control_flow = self.get_control_flow_for_stream_key(stream_key)
             for event_tuple in event_list:
                 event_id, json_msg = event_tuple
-                event_schema = BaseEventMessage(json_msg=json_msg)
+                event_schema = EventDispatcherBaseEventMessage(json_msg=json_msg)
                 event_data = event_schema.object_load_from_msg()
                 self.log_dispatched_events(event_data, control_flow)
                 self.dispatch(event_data, control_flow)
