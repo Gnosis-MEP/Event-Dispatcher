@@ -40,6 +40,9 @@ class EventDispatcher(BaseService):
         self.all_events_consumer_group.block = 1
         return self.all_events_consumer_group
 
+    def update_controlflow(self, control_flow):
+        pass
+
     def add_buffer_stream_key(self, key):
         self.stream_sources.add(key)
         self._update_all_events_consumer_group()
@@ -52,6 +55,8 @@ class EventDispatcher(BaseService):
     def process_action(self, action, event_data, json_msg):
         super(EventDispatcher, self).process_action(action, event_data, json_msg)
         if action == 'updateControlFlow':
+            control_flow = event_data['control_flow']
+            self.update_controlflow(control_flow)
             # do some action
             pass
         elif action == 'addBufferStreamKey':

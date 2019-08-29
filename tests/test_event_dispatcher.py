@@ -172,20 +172,21 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.assertListEqual(self.stream_factory.mocked_dict['dest1'], [expected_event_msg])
         self.assertListEqual(self.stream_factory.mocked_dict['dest2'], [expected_event_msg])
 
-    # @patch('event_dispatcher.service.EventDispatcher.update_controlflow')
-    # def test_process_action_should_call_del_buffer_stream_key(self, mocked_update_controlflow):
-    #     action = 'updateControlFlow'
-    #     query_data = {
-    #     }
-    #     event_data = query_data.copy()
-    #     event_data.update({
-    #         'action': action,
-    #     })
-    #     msg_tuple = prepare_event_msg_tuple(event_data)
+    @patch('event_dispatcher.service.EventDispatcher.update_controlflow')
+    def test_process_action_should_call_update_controlflow(self, mocked_update_controlflow):
+        action = 'updateControlFlow'
+        query_data = {
+            'control_flow': []
+        }
+        event_data = query_data.copy()
+        event_data.update({
+            'action': action,
+        })
+        msg_tuple = prepare_event_msg_tuple(event_data)
 
-    #     self.service.service_cmd.mocked_values = [msg_tuple]
-    #     self.service.process_cmd()
-    #     self.assertTrue(mocked_update_controlflow.called)
-    #     mocked_update_controlflow.assert_called_once_with(
-    #         query_data[''],
-    #     )
+        self.service.service_cmd.mocked_values = [msg_tuple]
+        self.service.process_cmd()
+        self.assertTrue(mocked_update_controlflow.called)
+        mocked_update_controlflow.assert_called_once_with(
+            query_data['control_flow'],
+        )
