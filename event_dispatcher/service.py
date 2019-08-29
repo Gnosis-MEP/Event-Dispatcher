@@ -43,7 +43,7 @@ class EventDispatcher(BaseService):
     def update_controlflow(self, control_flow):
         pass
 
-    def add_buffer_stream_key(self, key):
+    def add_buffer_stream_key(self, key, query_ids):
         self.stream_sources.add(key)
         self._update_all_events_consumer_group()
 
@@ -57,11 +57,10 @@ class EventDispatcher(BaseService):
         if action == 'updateControlFlow':
             control_flow = event_data['control_flow']
             self.update_controlflow(control_flow)
-            # do some action
-            pass
         elif action == 'addBufferStreamKey':
             key = event_data['buffer_stream_key']
-            self.add_buffer_stream_key(key)
+            query_ids = event_data['query_ids']
+            self.add_buffer_stream_key(key, query_ids)
         elif action == 'delBufferStreamKey':
             key = event_data['buffer_stream_key']
             self.del_buffer_stream_key(key)

@@ -56,6 +56,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         action = 'addBufferStreamKey'
         query_data = {
             'buffer_stream_key': 'unique-buffer-key',
+            'query_ids': ['query1', 'query2']
         }
         event_data = query_data.copy()
         event_data.update({
@@ -68,6 +69,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.assertTrue(mocked_add_buffer_stream_key.called)
         mocked_add_buffer_stream_key.assert_called_once_with(
             query_data['buffer_stream_key'],
+            query_data['query_ids']
         )
 
     @patch('event_dispatcher.service.EventDispatcher.del_buffer_stream_key')
@@ -190,3 +192,20 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         mocked_update_controlflow.assert_called_once_with(
             query_data['control_flow'],
         )
+
+    # def test_update_controlflow_should_change_data_flow_for_necessary_publisher_ids(self):
+    #     control_flow = [
+    #         {
+    #             'publisher-id-1': [
+    #                 ['model-a'],
+    #                 ['model-b', 'model-c'],
+    #                 ['graph-builder']
+    #             ],
+    #             'publisher-id-2': [
+    #                 ['model-a'],
+    #                 ['model-b'],
+    #                 ['graph-builder']
+    #             ]
+    #         }
+    #     ]
+    #     self.service.update_controlflow(control_flow)
