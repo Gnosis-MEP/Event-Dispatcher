@@ -4,7 +4,7 @@ from event_service_utils.services.base import BaseService
 from event_service_utils.schemas.internal_msgs import (
     BaseInternalMessage,
 )
-from event_dispatcher.schemas import EventDispatcherBaseEventMessage
+from event_dispatcher.schemas import EventDispatcherBaseEventMessage, DataFlowEventMessage
 
 
 class EventDispatcher(BaseService):
@@ -71,12 +71,46 @@ class EventDispatcher(BaseService):
     def log_dispatched_events(self, event_data, control_flow):
         self.logger.debug(f'Dispatching event | {event_data} | to => {control_flow}')
 
+    def get_destination_streams(self, destination):
+        return self.stream_factory.create(destination, stype='streamOnly')
+
     def dispatch(self, event_data, control_flow):
-        # return self.get_destination_stream(destination).write_events(event)
-        pass
+        """
+        Create a event message with the informations about the data-flow (all destinations).
+        that is, a data-flow field, with all the data-flow for this event
+        And the path of the event (which should start empty,
+            and be filled whenever it passes through an data-flow point)
+        """
+        next_step = control_flow[0]
+        data_flow = control_flow
+        schema = DataFlowEventMessage(
+            id=event_data['id'],
+            publisher_id=event_data['publisher_id'],
+            source=event_data['source'],
+            data_flow=data_flow,
+            data_path=[],
+            event_data=event_data,
+        )
+        json_msg = schema.json_msg_load_from_dict()
+        for destination in next_step:
+            self.get_destination_streams(destination).write_events(json_msg)
 
     def get_control_flow_for_stream_key(self, stream_key):
-        return []
+        """
+        Should return a control step list,
+        where each step is a list of the necessary destinations to be sent to in parallel.
+        Eg:
+            [
+                ['dest1-stream'],  # first destinations is dest1-stream
+                ['dest2-stream', 'dest3-stream'], # later on go through dest2-stream and dest3-stream in parallel.
+            ]
+        """
+        step1 = ['dest1-stream']
+        step2 = ['dest2-stream', 'dest3-stream']
+        return [
+            step1,
+            step2
+        ]
 
     def process_data(self):
         stream_sources_events = list(self.all_events_consumer_group.read_stream_events_list(count=1))

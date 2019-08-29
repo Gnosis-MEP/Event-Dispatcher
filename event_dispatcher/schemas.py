@@ -29,15 +29,20 @@ class EventDispatcherBaseEventMessage():
         return self.dict
 
 
-class OutputEventMessage():
+class DataFlowEventMessage():
 
-    def __init__(self, id=None, publisher_id=None, source=None, destinations=None, json_msg=None):
+    def __init__(self, id=None, publisher_id=None, source=None, data_flow=None, data_path=None, event_data=None, json_msg=None):
         self.dict = {
             'id': id,
             'publisher_id': publisher_id,
             'source': source,
-            'destinations': destinations
+            'data_flow': data_flow,
+            'data_path': data_path
         }
+        if event_data:
+            for key, value in event_data.items():
+                if key not in self.dict:
+                    self.dict[key] = value
         self.json_serialized = json_msg
 
     def json_msg_load_from_dict(self):
