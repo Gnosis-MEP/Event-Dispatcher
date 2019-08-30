@@ -3,9 +3,8 @@ from event_service_utils.streams.redis import RedisStreamFactory
 from event_service_utils.schemas.internal_msgs import (
     BaseInternalMessage,
 )
-from event_service_utils.schemas.events import (
-    BaseEventMessage,
-)
+
+from event_dispatcher.schemas import EventDispatcherBaseEventMessage
 
 from event_dispatcher.conf import (
     REDIS_ADDRESS,
@@ -20,9 +19,10 @@ def make_dict_key_bites(d):
 
 
 def new_event_msg(event_data):
-    schema = BaseEventMessage()
+    schema = EventDispatcherBaseEventMessage()
     schema.dict.update(event_data)
     return schema.json_msg_load_from_dict()
+
 
 def new_action_msg(action, event_data):
     schema = BaseInternalMessage(action=action)
@@ -35,22 +35,47 @@ def send_cmds(service_cmd):
         'addBufferStreamKey',
         {
             'buffer_stream_key': 'buffer1',
-            'query_ids': ['query1', 'query2']
+            'publisher_id': 'publisher1'
         }
     )
     msg_2 = new_action_msg(
         'addBufferStreamKey',
         {
             'buffer_stream_key': 'buffer2',
-            'query_ids': ['query3']
+            'publisher_id': 'publisher2'
 
         }
     )
-
     msg_3 = new_action_msg(
+        'addBufferStreamKey',
+        {
+            'buffer_stream_key': 'buffer3',
+            'publisher_id': 'publisher2'
+
+        }
+    )
+    msg_4 = new_action_msg(
+        'updateControlFlow',
+        {
+            'control_flow': {
+                'publisher1': [
+                    ['dest1', 'dest2'],
+                    ['dest3'],
+                    ['graph-builder']
+                ],
+                'publisher2': [
+                    ['dest1'],
+                    ['dest3'],
+                    ['graph-builder']
+                ]
+            }
+        }
+    )
+
+    msg_5 = new_action_msg(
         'delBufferStreamKey',
         {
-            'buffer_stream_key': 'buffer1',
+            'buffer_stream_key': 'buffer3',
         }
     )
 
@@ -61,12 +86,17 @@ def send_cmds(service_cmd):
     service_cmd.write_events(msg_2)
     print(f'Sending msg {msg_3}')
     service_cmd.write_events(msg_3)
+    print(f'Sending msg {msg_4}')
+    service_cmd.write_events(msg_4)
+    print(f'Sending msg {msg_5}')
+    service_cmd.write_events(msg_5)
 
 
-def send_msgs(service_stream):
+def send_msgs(service_stream, publisher_id):
     msg_1 = new_event_msg(
         {
-            'event': f'new msg in {service_stream.key}',
+            'publisher_id': publisher_id,
+            'information': f'new msg in {service_stream.key}',
         }
     )
 
@@ -79,8 +109,10 @@ def main():
     service_cmd = stream_factory.create(SERVICE_CMD_KEY, stype='streamOnly')
     buffer_1 = stream_factory.create('buffer1', stype='streamOnly')
     buffer_2 = stream_factory.create('buffer2', stype='streamOnly')
-    import ipdb; ipdb.set_trace()
     send_cmds(service_cmd)
+    import ipdb; ipdb.set_trace()
+    send_msgs(buffer_1, 'publisher1')
+    send_msgs(buffer_2, 'publisher2')
 
 
 if __name__ == '__main__':

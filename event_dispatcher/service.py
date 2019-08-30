@@ -81,7 +81,8 @@ class EventDispatcher(BaseService):
 
     def log_state(self):
         super(EventDispatcher, self).log_state()
-        self._log_dict('Stream Sources and Publisher Ids', self.stream_to_publisher_id_map)
+        self._log_dict('Stream Sources to Publisher Ids', self.stream_to_publisher_id_map)
+        self._log_dict('Publisher IDs control flow', self.publisher_id_to_control_flow_map)
 
     def log_dispatched_events(self, event_data, control_flow):
         self.logger.debug(f'Dispatching event | {event_data} | to => {control_flow}')
@@ -96,6 +97,8 @@ class EventDispatcher(BaseService):
         And the path of the event (which should start empty,
             and be filled whenever it passes through an data-flow point)
         """
+        if len(control_flow) == 0:
+            return
         next_step = control_flow[0]
         data_flow = control_flow
         schema = DataFlowEventMessage(
@@ -120,7 +123,7 @@ class EventDispatcher(BaseService):
                 ['dest2-stream', 'dest3-stream'], # later on go through dest2-stream and dest3-stream in parallel.
             ]
         """
-        publisher_id = self.stream_to_publisher_id_map[stream_key]
+        publisher_id = self.stream_to_publisher_id_map.get(stream_key)
         return self.publisher_id_to_control_flow_map.get(publisher_id, [])
 
     def process_data(self):
@@ -128,7 +131,10 @@ class EventDispatcher(BaseService):
         if stream_sources_events:
             self.logger.debug(f'Processing DATA.. {stream_sources_events}')
 
-        for stream_key, event_list in stream_sources_events:
+        for stream_key_bytes, event_list in stream_sources_events:
+            stream_key = stream_key_bytes
+            if type(stream_key_bytes) == bytes:
+                stream_key = stream_key_bytes.decode('utf-8')
             control_flow = self.get_control_flow_for_stream_key(stream_key)
             for event_tuple in event_list:
                 event_id, json_msg = event_tuple

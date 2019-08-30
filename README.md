@@ -1,6 +1,62 @@
 # Event Dispatcher
 Service responsible for reading the buffers from the pre-processor and send them to the correct content extraction based on the Control Flow received by the Query Planner.
 
+# Commands
+## Inputs
+### addBufferStreamKey
+```json
+{
+    "action": "addBufferStreamKey",
+    "buffer_stream_key": "buffer-stream-key",
+    "publisher_id": "44d7985a-e41e-4d02-a772-a8f7c1c69124"
+}
+```
+
+### delBufferStreamKey
+```json
+{
+    "action": "delQuery",
+    "buffer_stream_key": "buffer-stream-key"
+}
+```
+### updateControlFlow
+```json
+{
+    "action": "updateControlFlow",
+    "control_flow": {
+        "some-publisher-id-1": [
+            ["dest1", "dest2"],
+            ["dest3"],
+            ["graph-builder"]
+        ],
+        "other-publisher-id-2": [
+            ["dest1"],
+            ["dest3"],
+            ["graph-builder"]
+        ]
+    }
+}
+
+```
+## Outputs
+
+# Data
+
+Annotate the input data events with the following fields:
+```json
+{
+    "data_flow": [
+            ["dest1", "dest2"], // first step
+            ["dest3"],          // second step
+            ["graph-builder"]   // final step
+        ],
+    "data_path": [],
+}
+```
+Where, data_flow is the complete data-flow for this event.
+And data_path is the ongoing process (whenever it gets into a new destination in the data-flow, it will update data_path, in order to have the current destination in there).
+The data events are dispatched to the destinations in the first step on the dataflow.
+
 
 # Installation
 

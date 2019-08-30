@@ -122,7 +122,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
 
     @patch('event_dispatcher.service.EventDispatcher.get_control_flow_for_stream_key')
     @patch('event_dispatcher.service.EventDispatcher.dispatch')
-    def test_process_data_should_call_dispatch_events_and_ge_control_flow(self, mocked_dispatch, mocked_control_flow):
+    def test_process_data_should_call_dispatch_events_and_get_control_flow(self, mocked_dispatch, mocked_control_flow):
         mocked_stream_sources = {
             'buffer1': [
                 self._mocked_event_message(
@@ -178,6 +178,16 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.assertEqual(expected_stream_keys, final_stream_keys)
         self.assertListEqual(self.stream_factory.mocked_dict['dest1'], [expected_event_msg])
         self.assertListEqual(self.stream_factory.mocked_dict['dest2'], [expected_event_msg])
+
+    def test_dispatch_should_should_do_nothing_if_no_control_flow(self):
+        input_event_schema = EventDispatcherBaseEventMessage(id='1', publisher_id='publisher_id1', source='source1')
+        event_data = input_event_schema.dict.copy()
+        control_flow = []
+        original_stream_keys = set(self.stream_factory.mocked_dict.keys())
+        expected_stream_keys = original_stream_keys.copy()
+        self.service.dispatch(event_data, control_flow)
+        final_stream_keys = set(self.stream_factory.mocked_dict.keys())
+        self.assertEqual(expected_stream_keys, final_stream_keys)
 
     @patch('event_dispatcher.service.EventDispatcher.update_control_flow')
     def test_process_action_should_call_update_control_flow(self, mocked_update_control_flow):
