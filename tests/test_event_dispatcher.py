@@ -56,7 +56,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         action = 'addBufferStreamKey'
         query_data = {
             'buffer_stream_key': 'unique-buffer-key',
-            'query_ids': ['query1', 'query2']
+            'publisher_id': 'publisher1'
         }
         event_data = query_data.copy()
         event_data.update({
@@ -69,7 +69,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.assertTrue(mocked_add_buffer_stream_key.called)
         mocked_add_buffer_stream_key.assert_called_once_with(
             query_data['buffer_stream_key'],
-            query_data['query_ids']
+            query_data['publisher_id']
         )
 
     @patch('event_dispatcher.service.EventDispatcher.del_buffer_stream_key')
@@ -93,8 +93,8 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
 
     @patch('event_dispatcher.service.EventDispatcher._update_all_events_consumer_group')
     def test_add_buffer_stream_key_should_call_update_all_events_consumer_group(self, mocked_update):
-        query_ids = ['query1', 'query2']
-        self.service.add_buffer_stream_key('unique-buffer-key', query_ids)
+        publisher_id = 'publisher1'
+        self.service.add_buffer_stream_key('unique-buffer-key', publisher_id)
         self.assertTrue(mocked_update.called)
         mocked_update.assert_called_once()
 
@@ -102,23 +102,23 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.service._update_all_events_consumer_group()
         self.assertEqual(self.service.all_events_consumer_group.block, 1)
 
-    def test_update_all_events_consumer_group_should_have_same_keys_as_stream_to_query_map(self):
-        stream_to_query_map = {
+    def test_update_all_events_consumer_group_should_have_same_keys_as_stream_to_publisher_id_map(self):
+        stream_to_publisher_id_map = {
             SERVICE_STREAM_KEY: set(),
             'some-stream': set(),
             'another-stream': set()
         }
-        self.service.stream_to_query_map = stream_to_query_map
+        self.service.stream_to_publisher_id_map = stream_to_publisher_id_map
         self.service._update_all_events_consumer_group()
-        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_query_map.keys()))
+        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_publisher_id_map.keys()))
 
-        del self.service.stream_to_query_map['some-stream']
+        del self.service.stream_to_publisher_id_map['some-stream']
         self.service._update_all_events_consumer_group()
-        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_query_map.keys()))
+        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_publisher_id_map.keys()))
 
-        self.service.stream_to_query_map['some-other-stream'] = set()
+        self.service.stream_to_publisher_id_map['some-other-stream'] = set()
         self.service._update_all_events_consumer_group()
-        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_query_map.keys()))
+        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_publisher_id_map.keys()))
 
     @patch('event_dispatcher.service.EventDispatcher.get_control_flow_for_stream_key')
     @patch('event_dispatcher.service.EventDispatcher.dispatch')
@@ -179,8 +179,8 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.assertListEqual(self.stream_factory.mocked_dict['dest1'], [expected_event_msg])
         self.assertListEqual(self.stream_factory.mocked_dict['dest2'], [expected_event_msg])
 
-    @patch('event_dispatcher.service.EventDispatcher.update_controlflow')
-    def test_process_action_should_call_update_controlflow(self, mocked_update_controlflow):
+    @patch('event_dispatcher.service.EventDispatcher.update_control_flow')
+    def test_process_action_should_call_update_control_flow(self, mocked_update_control_flow):
         action = 'updateControlFlow'
         query_data = {
             'control_flow': []
@@ -193,12 +193,12 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
 
         self.service.service_cmd.mocked_values = [msg_tuple]
         self.service.process_cmd()
-        self.assertTrue(mocked_update_controlflow.called)
-        mocked_update_controlflow.assert_called_once_with(
+        self.assertTrue(mocked_update_control_flow.called)
+        mocked_update_control_flow.assert_called_once_with(
             query_data['control_flow'],
         )
 
-    # def test_update_controlflow_should_change_data_flow_for_necessary_publisher_ids(self):
+    # def test_update_control_flow_should_change_data_flow_for_necessary_publisher_ids(self):
     #     control_flow = [
     #         {
     #             'publisher-id-1': [
@@ -213,4 +213,4 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
     #             ]
     #         }
     #     ]
-    #     self.service.update_controlflow(control_flow)
+    #     self.service.update_control_flow(control_flow)

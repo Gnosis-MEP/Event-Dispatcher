@@ -26,50 +26,58 @@ class EventDispatcher(BaseService):
         # always have EVENT_DISPATCHER_STREAM_KEY as a input stream source
         # and also the namespace buffers key as inputs as well
         # self.stream_sources = set({service_stream_key})
-        self.stream_to_query_map = {service_stream_key: set()}
+        self.stream_to_publisher_id_map = {service_stream_key: set()}
+        # self.stream_to_control_flow_map {}
         self.all_events_consumer_group = None
         self._update_all_events_consumer_group()
 
     def _update_all_events_consumer_group(self):
-        if len(self.stream_to_query_map.keys()) == 0:
+        if len(self.stream_to_publisher_id_map.keys()) == 0:
             self.all_events_consumer_group = None
         else:
             self.all_events_consumer_group = self.stream_factory.create(
-                key=list(self.stream_to_query_map.keys()), stype='manyKeyConsumer')
+                key=list(self.stream_to_publisher_id_map.keys()), stype='manyKeyConsumer')
         # block only for 1 ms, this way if a new stream is added to the group
         # it should wait at most for 1 ms before reading and considering this new stream
         self.all_events_consumer_group.block = 1
         return self.all_events_consumer_group
 
-    def update_controlflow(self, control_flow):
+    def update_control_flow(self, control_flow):
+        control_flow = {
+            'publisher1': [
+                ['dest1', 'dest2']
+                ['dest3']
+            ]
+        }
+        # self.
         pass
 
-    def add_buffer_stream_key(self, key, query_ids):
-        query_id_set = self.stream_to_query_map.setdefault(key, set())
-        query_id_set.symmetric_difference_update(set(query_ids))
+    def add_buffer_stream_key(self, key, publisher_id):
+        publisher_id_set = self.stream_to_publisher_id_map.setdefault(key, set())
+        publisher_id_set.add(publisher_id)
         self._update_all_events_consumer_group()
 
     def del_buffer_stream_key(self, key):
-        if key in self.stream_to_query_map:
-            del self.stream_to_query_map[key]
+        if key in self.stream_to_publisher_id_map:
+            del self.stream_to_publisher_id_map[key]
         self._update_all_events_consumer_group()
 
     def process_action(self, action, event_data, json_msg):
         super(EventDispatcher, self).process_action(action, event_data, json_msg)
         if action == 'updateControlFlow':
             control_flow = event_data['control_flow']
-            self.update_controlflow(control_flow)
+            self.update_control_flow(control_flow)
         elif action == 'addBufferStreamKey':
             key = event_data['buffer_stream_key']
-            query_ids = event_data['query_ids']
-            self.add_buffer_stream_key(key, query_ids)
+            publisher_id = event_data['publisher_id']
+            self.add_buffer_stream_key(key, publisher_id)
         elif action == 'delBufferStreamKey':
             key = event_data['buffer_stream_key']
             self.del_buffer_stream_key(key)
 
     def log_state(self):
         super(EventDispatcher, self).log_state()
-        self._log_dict('Stream Sources and Queries', self.stream_to_query_map)
+        self._log_dict('Stream Sources and Publisher Ids', self.stream_to_publisher_id_map)
 
     def log_dispatched_events(self, event_data, control_flow):
         self.logger.debug(f'Dispatching event | {event_data} | to => {control_flow}')
