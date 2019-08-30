@@ -35,12 +35,15 @@ def send_cmds(service_cmd):
         'addBufferStreamKey',
         {
             'buffer_stream_key': 'buffer1',
+            'query_ids': ['query1', 'query2']
         }
     )
     msg_2 = new_action_msg(
         'addBufferStreamKey',
         {
             'buffer_stream_key': 'buffer2',
+            'query_ids': ['query3']
+
         }
     )
 

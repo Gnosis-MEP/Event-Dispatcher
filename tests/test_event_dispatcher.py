@@ -93,7 +93,8 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
 
     @patch('event_dispatcher.service.EventDispatcher._update_all_events_consumer_group')
     def test_add_buffer_stream_key_should_call_update_all_events_consumer_group(self, mocked_update):
-        self.service.add_buffer_stream_key('unique-buffer-key')
+        query_ids = ['query1', 'query2']
+        self.service.add_buffer_stream_key('unique-buffer-key', query_ids)
         self.assertTrue(mocked_update.called)
         mocked_update.assert_called_once()
 
@@ -101,19 +102,23 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.service._update_all_events_consumer_group()
         self.assertEqual(self.service.all_events_consumer_group.block, 1)
 
-    def test_update_all_events_consumer_group_should_have_same_keys_as_stream_sources(self):
-        stream_sources = set({SERVICE_STREAM_KEY, 'some-stream', 'another-stream'})
-        self.service.stream_sources = stream_sources
+    def test_update_all_events_consumer_group_should_have_same_keys_as_stream_to_query_map(self):
+        stream_to_query_map = {
+            SERVICE_STREAM_KEY: set(),
+            'some-stream': set(),
+            'another-stream': set()
+        }
+        self.service.stream_to_query_map = stream_to_query_map
         self.service._update_all_events_consumer_group()
-        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_sources))
+        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_query_map.keys()))
 
-        self.service.stream_sources.remove('some-stream')
+        del self.service.stream_to_query_map['some-stream']
         self.service._update_all_events_consumer_group()
-        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_sources))
+        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_query_map.keys()))
 
-        self.service.stream_sources.add('some-other-stream')
+        self.service.stream_to_query_map['some-other-stream'] = set()
         self.service._update_all_events_consumer_group()
-        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_sources))
+        self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_query_map.keys()))
 
     @patch('event_dispatcher.service.EventDispatcher.get_control_flow_for_stream_key')
     @patch('event_dispatcher.service.EventDispatcher.dispatch')
