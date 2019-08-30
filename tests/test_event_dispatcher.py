@@ -104,9 +104,9 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
 
     def test_update_all_events_consumer_group_should_have_same_keys_as_stream_to_publisher_id_map(self):
         stream_to_publisher_id_map = {
-            SERVICE_STREAM_KEY: set(),
-            'some-stream': set(),
-            'another-stream': set()
+            SERVICE_STREAM_KEY: None,
+            'some-stream': 'publisher1',
+            'another-stream': 'publisher2'
         }
         self.service.stream_to_publisher_id_map = stream_to_publisher_id_map
         self.service._update_all_events_consumer_group()
@@ -116,7 +116,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.service._update_all_events_consumer_group()
         self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_publisher_id_map.keys()))
 
-        self.service.stream_to_publisher_id_map['some-other-stream'] = set()
+        self.service.stream_to_publisher_id_map['some-other-stream'] = 'publisher3'
         self.service._update_all_events_consumer_group()
         self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_publisher_id_map.keys()))
 
@@ -198,19 +198,52 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
             query_data['control_flow'],
         )
 
-    # def test_update_control_flow_should_change_data_flow_for_necessary_publisher_ids(self):
-    #     control_flow = [
-    #         {
-    #             'publisher-id-1': [
-    #                 ['model-a'],
-    #                 ['model-b', 'model-c'],
-    #                 ['graph-builder']
-    #             ],
-    #             'publisher-id-2': [
-    #                 ['model-a'],
-    #                 ['model-b'],
-    #                 ['graph-builder']
-    #             ]
-    #         }
-    #     ]
-    #     self.service.update_control_flow(control_flow)
+    def test_update_control_flow_should_change_data_flow_for_necessary_publisher_ids(self):
+        self.service.publisher_id_to_control_flow_map = {
+            'publisher-id-1': [
+                ['model-a'],
+                ['graph-builder']
+            ],
+            'publisher-id-2': [
+                ['model-b'],
+                ['graph-builder']
+            ]
+        }
+        control_flow = {
+            'publisher-id-1': [
+                ['model-a'],
+                ['model-b', 'model-c'],
+                ['graph-builder']
+            ],
+            'publisher-id-3': [
+                ['model-a'],
+                ['graph-builder']
+            ]
+        }
+        expected_dict = {
+            'publisher-id-1': [
+                ['model-a'],
+                ['model-b', 'model-c'],
+                ['graph-builder']
+            ],
+            'publisher-id-2': [
+                ['model-b'],
+                ['graph-builder']
+            ],
+            'publisher-id-3': [
+                ['model-a'],
+                ['graph-builder']
+            ]
+        }
+        self.service.update_control_flow(control_flow)
+        self.assertDictEqual(expected_dict, self.service.publisher_id_to_control_flow_map)
+
+    def test_get_control_flow_for_stream_key_should_return_correct_control_flow(self):
+        stream_key = 'stream'
+        publisher_id = 'publisher1'
+        expected_control_flow = [['dest1'], ['dest2']]
+
+        self.service.stream_to_publisher_id_map[stream_key] = publisher_id
+        self.service.publisher_id_to_control_flow_map[publisher_id] = expected_control_flow
+        control_flow = self.service.get_control_flow_for_stream_key(stream_key)
+        self.assertListEqual(expected_control_flow, control_flow)
