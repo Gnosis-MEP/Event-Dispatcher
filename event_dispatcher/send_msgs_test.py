@@ -32,13 +32,31 @@ def new_action_msg(action, event_data):
 
 def send_cmds(service_cmd):
     msg_1 = new_action_msg(
-        'addBufferStreamKey',
+        'updateControlFlow',
         {
-            'buffer_stream_key': 'buffer1',
-            'publisher_id': 'publisher1'
+            'control_flow': {
+                '44d7985a-e41e-4d02-a772-a8f7c1c69124': [
+                    ['person-detection-data'],
+                    ['car-detection-data'],
+                    ['dog-detection-data'],
+                    ['gb-data']
+                ],
+                # 'publisher2': [
+                #     ['dest1'],
+                #     ['dest3'],
+                #     ['graph-builder']
+                # ]
+            }
         }
     )
     msg_2 = new_action_msg(
+        'addBufferStreamKey',
+        {
+            'buffer_stream_key': 'd9a090de77d717758c950aa987602fe4',
+            'publisher_id': '44d7985a-e41e-4d02-a772-a8f7c1c69124'
+        }
+    )
+    msg_3 = new_action_msg(
         'addBufferStreamKey',
         {
             'buffer_stream_key': 'buffer2',
@@ -46,29 +64,12 @@ def send_cmds(service_cmd):
 
         }
     )
-    msg_3 = new_action_msg(
+    msg_4 = new_action_msg(
         'addBufferStreamKey',
         {
             'buffer_stream_key': 'buffer3',
             'publisher_id': 'publisher2'
 
-        }
-    )
-    msg_4 = new_action_msg(
-        'updateControlFlow',
-        {
-            'control_flow': {
-                'publisher1': [
-                    ['dest1', 'dest2'],
-                    ['dest3'],
-                    ['graph-builder']
-                ],
-                'publisher2': [
-                    ['dest1'],
-                    ['dest3'],
-                    ['graph-builder']
-                ]
-            }
         }
     )
 
@@ -84,12 +85,12 @@ def send_cmds(service_cmd):
     service_cmd.write_events(msg_1)
     print(f'Sending msg {msg_2}')
     service_cmd.write_events(msg_2)
-    print(f'Sending msg {msg_3}')
-    service_cmd.write_events(msg_3)
-    print(f'Sending msg {msg_4}')
-    service_cmd.write_events(msg_4)
-    print(f'Sending msg {msg_5}')
-    service_cmd.write_events(msg_5)
+    # print(f'Sending msg {msg_3}')
+    # service_cmd.write_events(msg_3)
+    # print(f'Sending msg {msg_4}')
+    # service_cmd.write_events(msg_4)
+    # print(f'Sending msg {msg_5}')
+    # service_cmd.write_events(msg_5)
 
 
 def send_msgs(service_stream, publisher_id):
@@ -111,8 +112,8 @@ def main():
     buffer_2 = stream_factory.create('buffer2', stype='streamOnly')
     send_cmds(service_cmd)
     import ipdb; ipdb.set_trace()
-    send_msgs(buffer_1, 'publisher1')
-    send_msgs(buffer_2, 'publisher2')
+    # send_msgs(buffer_1, 'publisher1')
+    # send_msgs(buffer_2, 'publisher2')
 
 
 if __name__ == '__main__':
