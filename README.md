@@ -1,7 +1,7 @@
 # Event Dispatcher
 Service responsible for reading the buffers from the pre-processor and send them to the correct content extraction based on the Control Flow received by the Query Planner.
 
-# Commands
+# Commands Stream
 ## Inputs
 ### addBufferStreamKey
 ```json
@@ -40,7 +40,7 @@ Service responsible for reading the buffers from the pre-processor and send them
 ```
 ## Outputs
 
-# Data
+# Data Stream
 
 Annotate the input data events with the following fields:
 ```json
