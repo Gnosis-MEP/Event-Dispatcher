@@ -39,9 +39,17 @@ Service responsible for reading the buffers from the pre-processor and send them
 
 ```
 ## Outputs
+None
 
 # Data Stream
-
+Expect an data event with at least the following fields:
+```json
+{
+    "id": "event id",
+    "publisher_id": "publisher-id",
+    "source": "some source"
+}
+```
 Annotate the input data events with the following fields:
 ```json
 {
