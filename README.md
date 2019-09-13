@@ -15,7 +15,7 @@ Service responsible for reading the buffers from the pre-processor and send them
 ### delBufferStreamKey
 ```json
 {
-    "action": "delQuery",
+    "action": "delBufferStreamKey",
     "buffer_stream_key": "buffer-stream-key"
 }
 ```
