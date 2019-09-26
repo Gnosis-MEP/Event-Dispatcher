@@ -153,7 +153,12 @@ class EventDispatcher(BaseTracerService):
             for event_tuple in event_list:
                 event_id, json_msg = event_tuple
                 event_data = self.default_event_deserializer(json_msg)
-                assert 'id' in event_data, "'id' field should always be present in all events"
+
+                try:
+                    assert 'id' in event_data, "'id' field should always be present in all events"
+                except Exception as e:
+                    self.logger.exception(e)
+                    self.logger.info(f'Ignoring bad event data: {event_data}')
                 self.log_dispatched_events(event_data, control_flow)
                 self.dispatch_with_tracer(event_data, control_flow)
 
