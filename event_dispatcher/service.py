@@ -5,7 +5,6 @@ from opentracing.ext import tags
 
 from event_service_utils.services.tracer import BaseTracerService, EVENT_ID_TAG
 from event_service_utils.tracing.jaeger import init_tracer
-from event_dispatcher.schemas import EventDispatcherBaseEventMessage
 
 
 class EventDispatcher(BaseTracerService):
