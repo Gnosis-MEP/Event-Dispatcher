@@ -1,25 +1,27 @@
+
 import threading
 
-from event_service_utils.services.base import BaseService
-from event_service_utils.schemas.internal_msgs import (
-    BaseInternalMessage,
-)
-from event_dispatcher.schemas import EventDispatcherBaseEventMessage, DataFlowEventMessage
+from opentracing.ext import tags
+
+from event_service_utils.services.tracer import BaseTracerService, EVENT_ID_TAG
+from event_service_utils.tracing.jaeger import init_tracer
+from event_dispatcher.schemas import EventDispatcherBaseEventMessage
 
 
-class EventDispatcher(BaseService):
+class EventDispatcher(BaseTracerService):
     def __init__(self,
                  service_stream_key, service_cmd_key,
                  stream_factory,
                  logging_level):
 
+        tracer = init_tracer(self.__class__.__name__)
         super(EventDispatcher, self).__init__(
             name=self.__class__.__name__,
             service_stream_key=service_stream_key,
             service_cmd_key=service_cmd_key,
-            cmd_event_schema=BaseInternalMessage,
             stream_factory=stream_factory,
-            logging_level=logging_level
+            logging_level=logging_level,
+            tracer=tracer,
         )
         del self.service_stream
         self.events_consumer_group_name = f'cg-{service_stream_key}'
@@ -101,17 +103,14 @@ class EventDispatcher(BaseService):
             return
         next_step = control_flow[0]
         data_flow = control_flow
-        schema = DataFlowEventMessage(
-            id=event_data['id'],
-            publisher_id=event_data['publisher_id'],
-            source=event_data['source'],
-            data_flow=data_flow,
-            data_path=[],
-            event_data=event_data,
-        )
-        json_msg = schema.json_msg_load_from_dict()
+        event_data.update({
+            'data_flow': data_flow,
+            'data_path': [],
+        })
+
         for destination in next_step:
-            self.get_destination_streams(destination).write_events(json_msg)
+            destination_stream = self.get_destination_streams(destination)
+            self.write_event_with_trace(event_data, destination_stream)
 
     def get_control_flow_for_stream_key(self, stream_key):
         """
@@ -126,6 +125,21 @@ class EventDispatcher(BaseService):
         publisher_id = self.stream_to_publisher_id_map.get(stream_key)
         return self.publisher_id_to_control_flow_map.get(publisher_id, [])
 
+    def dispatch_with_tracer(self, event_data, control_flow):
+        self.event_trace_for_method_with_event_data(
+            method=self.dispatch,
+            method_args=(),
+            method_kwargs={
+                'event_data': event_data,
+                'control_flow': control_flow
+            },
+            get_event_tracer=True,
+            tracer_tags={
+                EVENT_ID_TAG: event_data['id'],
+                tags.SPAN_KIND: tags.SPAN_KIND_CONSUMER,
+            }
+        )
+
     def process_data(self):
         stream_sources_events = list(self.all_events_consumer_group.read_stream_events_list(count=1))
         if stream_sources_events:
@@ -138,10 +152,10 @@ class EventDispatcher(BaseService):
             control_flow = self.get_control_flow_for_stream_key(stream_key)
             for event_tuple in event_list:
                 event_id, json_msg = event_tuple
-                event_schema = EventDispatcherBaseEventMessage(json_msg=json_msg)
-                event_data = event_schema.object_load_from_msg()
+                event_data = self.default_event_deserializer(json_msg)
+                assert 'id' in event_data, "'id' field should always be present in all events"
                 self.log_dispatched_events(event_data, control_flow)
-                self.dispatch(event_data, control_flow)
+                self.dispatch_with_tracer(event_data, control_flow)
 
     def run(self):
         super(EventDispatcher, self).run()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import uuid
 from event_service_utils.streams.redis import RedisStreamFactory
 from event_service_utils.schemas.internal_msgs import (
     BaseInternalMessage,
@@ -21,12 +22,14 @@ def make_dict_key_bites(d):
 def new_event_msg(event_data):
     schema = EventDispatcherBaseEventMessage()
     schema.dict.update(event_data)
+    schema.dict.update({'id': str(uuid.uuid4())})
     return schema.json_msg_load_from_dict()
 
 
 def new_action_msg(action, event_data):
     schema = BaseInternalMessage(action=action)
     schema.dict.update(event_data)
+    schema.dict.update({'id': str(uuid.uuid4())})
     return schema.json_msg_load_from_dict()
 
 
@@ -108,12 +111,12 @@ def send_msgs(service_stream, publisher_id):
 def main():
     stream_factory = RedisStreamFactory(host=REDIS_ADDRESS, port=REDIS_PORT)
     service_cmd = stream_factory.create(SERVICE_CMD_KEY, stype='streamOnly')
-    buffer_1 = stream_factory.create('buffer1', stype='streamOnly')
+    buffer_1 = stream_factory.create('d9a090de77d717758c950aa987602fe4', stype='streamOnly')
     buffer_2 = stream_factory.create('buffer2', stype='streamOnly')
     send_cmds(service_cmd)
     import ipdb; ipdb.set_trace()
-    # send_msgs(buffer_1, 'publisher1')
-    # send_msgs(buffer_2, 'publisher2')
+    send_msgs(buffer_1, '44d7985a-e41e-4d02-a772-a8f7c1c69124')
+    send_msgs(buffer_2, 'publisher2')
 
 
 if __name__ == '__main__':

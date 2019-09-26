@@ -41,20 +41,23 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
     def test_process_cmd_should_call_process_action(self, mocked_process_action):
         action = 'someAction'
         event_data = {
+            'id': '1',
             'action': action,
             'some': 'stuff'
         }
         msg_tuple = prepare_event_msg_tuple(event_data)
+        mocked_process_action.__name__ = 'process_action'
 
         self.service.service_cmd.mocked_values = [msg_tuple]
         self.service.process_cmd()
         self.assertTrue(mocked_process_action.called)
-        self.service.process_action.assert_called_once_with(action, event_data, msg_tuple[1])
+        self.service.process_action.assert_called_once_with(action=action, event_data=event_data, json_msg=msg_tuple[1])
 
     @patch('event_dispatcher.service.EventDispatcher.add_buffer_stream_key')
     def test_process_action_should_call_add_buffer_stream_key(self, mocked_add_buffer_stream_key):
         action = 'addBufferStreamKey'
         query_data = {
+            'id': '1',
             'buffer_stream_key': 'unique-buffer-key',
             'publisher_id': 'publisher1'
         }
@@ -76,6 +79,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
     def test_process_action_should_call_del_buffer_stream_key(self, mocked_del_buffer_stream_key):
         action = 'delBufferStreamKey'
         query_data = {
+            'id': '1',
             'buffer_stream_key': 'unique-buffer-key',
         }
         event_data = query_data.copy()
@@ -149,6 +153,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.service.all_events_consumer_group._update_mocked_values(mocked_stream_sources)
 
         mocked_control_flow.return_value = []
+        mocked_dispatch.__name__ = 'dispatch'
         self.service.process_data()
         self.assertTrue(mocked_dispatch.called)
         self.assertEqual(mocked_dispatch.call_count, 2)
@@ -169,7 +174,8 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         expected_event_msg = {
             'event': (
                 '{"id": "1", "publisher_id": "publisher_id1", "source": "source1", '
-                '"data_flow": [["dest1", "dest2"], ["dest3"], ["dest4"]], "data_path": []}'
+                '"data_flow": [["dest1", "dest2"], ["dest3"], ["dest4"]], "data_path": [], '
+                '"tracer": {"headers": {}}}'
             )
         }
 
@@ -193,6 +199,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
     def test_process_action_should_call_update_control_flow(self, mocked_update_control_flow):
         action = 'updateControlFlow'
         query_data = {
+            'id': '1',
             'control_flow': []
         }
         event_data = query_data.copy()
