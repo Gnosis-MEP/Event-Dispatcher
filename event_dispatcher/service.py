@@ -11,9 +11,10 @@ class EventDispatcher(BaseTracerService):
     def __init__(self,
                  service_stream_key, service_cmd_key,
                  stream_factory,
-                 logging_level):
+                 logging_level,
+                 tracer_configs):
 
-        tracer = init_tracer(self.__class__.__name__)
+        tracer = init_tracer(self.__class__.__name__, **tracer_configs)
         super(EventDispatcher, self).__init__(
             name=self.__class__.__name__,
             service_stream_key=service_stream_key,

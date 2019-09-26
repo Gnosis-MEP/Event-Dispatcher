@@ -22,7 +22,8 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
     GLOBAL_SERVICE_CONFIG = {
         'service_stream_key': SERVICE_STREAM_KEY,
         'service_cmd_key': SERVICE_CMD_KEY,
-        'logging_level': 'ERROR'
+        'logging_level': 'ERROR',
+        'tracer_configs': {'reporting_host': None, 'reporting_port': None},
     }
     SERVICE_CLS = EventDispatcher
     MOCKED_STREAMS_DICT = {

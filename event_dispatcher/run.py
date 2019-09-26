@@ -9,17 +9,24 @@ from event_dispatcher.conf import (
     REDIS_PORT,
     SERVICE_STREAM_KEY,
     SERVICE_CMD_KEY,
+    TRACER_REPORTING_HOST,
+    TRACER_REPORTING_PORT,
     LOGGING_LEVEL
 )
 
 
 def run_service():
+    tracer_configs = {
+        'reporting_host': TRACER_REPORTING_HOST,
+        'reporting_port': TRACER_REPORTING_PORT,
+    }
     stream_factory = RedisStreamFactory(host=REDIS_ADDRESS, port=REDIS_PORT)
     service = EventDispatcher(
         service_stream_key=SERVICE_STREAM_KEY,
         service_cmd_key=SERVICE_CMD_KEY,
         stream_factory=stream_factory,
-        logging_level=LOGGING_LEVEL
+        logging_level=LOGGING_LEVEL,
+        tracer_configs=tracer_configs
     )
     service.run()
 
