@@ -159,8 +159,9 @@ class EventDispatcher(BaseTracerService):
                 except Exception as e:
                     self.logger.exception(e)
                     self.logger.info(f'Ignoring bad event data: {event_data}')
-                self.log_dispatched_events(event_data, control_flow)
-                self.dispatch_with_tracer(event_data, control_flow)
+                else:
+                    self.log_dispatched_events(event_data, control_flow)
+                    self.dispatch_with_tracer(event_data, control_flow)
 
     def run(self):
         super(EventDispatcher, self).run()
