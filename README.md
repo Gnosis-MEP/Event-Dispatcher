@@ -91,7 +91,11 @@ $ pip install --extra-index-url https://${SIT_PYPI_USER}:${SIT_PYPI_PASS}@sit-py
 ```
 
 # Running
-Inside the python environment (virtualenv or conda environment), run:
+Enter project python environment (virtualenv or conda environment)
+
+**ps**: It's required to have the .env variables loaded into the shell so that the project can run properly. An easy way of doing this is using `pipenv shell` to start the python environment with the `.env` file loaded or using the `source load_env.sh` command inside your preferable python environment (eg: conda).
+
+Then, run the service with:
 ```
 $ ./event_dispatcher/run.py
 ```
@@ -110,4 +114,17 @@ Build the docker image using: `docker-compose build`
 
 ## Run
 Use `docker-compose run --rm service` to run the docker image
+
+
+## Gitlab CI auto-build and tests
+
+This is automatically enabled for this project (using the `.gitlab-ci.yml` present in this project root folder).
+
+By default it will build the Dockerfile with every commit sent to the origin repository.
+
+Afterwards, it will use this newly builty image to run the tests using the `./run_tests.sh` script.
+
+But in order to make the automatic docker image build work, you'll need to set the `SIT_PYPI_USER` and `SIT_PYPI_PASS` variables in the Gitlab CI setting page: [Event Dispatcher CI Setting Page](https://gitlab.insight-centre.org/sit/mps/event-dispatcher/settings/ci_cd).
+
+And, in order to make the automatic tests work, you should also set the rest of the environement variables required by your service, usually the same you have set in your `.env` and which allows your `./run_tests.sh` to work.
 

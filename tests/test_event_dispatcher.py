@@ -9,7 +9,6 @@ from event_dispatcher.service import EventDispatcher
 
 from event_dispatcher.schemas import (
     EventDispatcherBaseEventMessage,
-    DataFlowEventMessage
 )
 
 from event_dispatcher.conf import (

@@ -1,9 +1,7 @@
-
 import threading
 
-from opentracing.ext import tags
-
-from event_service_utils.services.tracer import BaseTracerService, EVENT_ID_TAG
+from event_service_utils.logging.decorators import timer_logger
+from event_service_utils.services.tracer import BaseTracerService
 from event_service_utils.tracing.jaeger import init_tracer
 
 
@@ -32,6 +30,8 @@ class EventDispatcher(BaseTracerService):
         self.publisher_id_to_control_flow_map = {}
         self.all_events_consumer_group = None
         self._update_all_events_consumer_group()
+        self.cmd_validation_fields = ['id', 'action']
+        self.data_validation_fields = ['id', 'publisher_id']
 
     def _update_all_events_consumer_group(self):
         if len(self.stream_to_publisher_id_map.keys()) == 0:
@@ -69,7 +69,8 @@ class EventDispatcher(BaseTracerService):
         self._update_all_events_consumer_group()
 
     def process_action(self, action, event_data, json_msg):
-        super(EventDispatcher, self).process_action(action, event_data, json_msg)
+        if not super(EventDispatcher, self).process_action(action, event_data, json_msg):
+            return False
         if action == 'updateControlFlow':
             control_flow = event_data['control_flow']
             self.update_control_flow(control_flow)
@@ -125,20 +126,15 @@ class EventDispatcher(BaseTracerService):
         publisher_id = self.stream_to_publisher_id_map.get(stream_key)
         return self.publisher_id_to_control_flow_map.get(publisher_id, [])
 
-    def dispatch_with_tracer(self, event_data, control_flow):
-        self.event_trace_for_method_with_event_data(
-            method=self.dispatch,
-            method_args=(),
-            method_kwargs={
-                'event_data': event_data,
-                'control_flow': control_flow
-            },
-            get_event_tracer=True,
-            tracer_tags={
-                EVENT_ID_TAG: event_data['id'],
-                tags.SPAN_KIND: tags.SPAN_KIND_CONSUMER,
-            }
-        )
+    @timer_logger
+    def process_data_event(self, event_data, json_msg):
+        if not super(EventDispatcher, self).process_data_event(event_data, json_msg):
+            return False
+        stream_key = event_data['buffer_stream_key']
+        control_flow = self.get_control_flow_for_stream_key(stream_key)
+
+        self.log_dispatched_events(event_data, control_flow)
+        self.dispatch(event_data, control_flow)
 
     def process_data(self):
         stream_sources_events = list(self.all_events_consumer_group.read_stream_events_list(count=1))
@@ -149,19 +145,17 @@ class EventDispatcher(BaseTracerService):
             stream_key = stream_key_bytes
             if type(stream_key_bytes) == bytes:
                 stream_key = stream_key_bytes.decode('utf-8')
-            control_flow = self.get_control_flow_for_stream_key(stream_key)
             for event_tuple in event_list:
                 event_id, json_msg = event_tuple
-                event_data = self.default_event_deserializer(json_msg)
-
                 try:
-                    assert 'id' in event_data, "'id' field should always be present in all events"
+                    event_data = self.default_event_deserializer(json_msg)
+                    event_data.update({
+                        'buffer_stream_key': stream_key
+                    })
+                    self.process_data_event_wrapper(event_data, json_msg)
                 except Exception as e:
+                    self.logger.error(f'Error processing {json_msg}:')
                     self.logger.exception(e)
-                    self.logger.info(f'Ignoring bad event data: {event_data}')
-                else:
-                    self.log_dispatched_events(event_data, control_flow)
-                    self.dispatch_with_tracer(event_data, control_flow)
 
     def run(self):
         super(EventDispatcher, self).run()
