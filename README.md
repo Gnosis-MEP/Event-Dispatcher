@@ -25,14 +25,13 @@ Service responsible for reading the buffers from the pre-processor and send them
     "action": "updateControlFlow",
     "control_flow": {
         "some-publisher-id-1": [
-            ["dest1", "dest2"],
-            ["dest3"],
-            ["graph-builder"]
+            ["object-detection-data"],
+            ["color-detection-data"],
+            ["wa-data"]
         ],
         "other-publisher-id-2": [
-            ["dest1"],
-            ["dest3"],
-            ["graph-builder"]
+            ["color-detection-data"],
+            ["wa-data"],
         ]
     }
 }
