@@ -6,6 +6,7 @@ Service responsible for reading the buffers from the pre-processor and send them
 ### addBufferStreamKey
 ```json
 {
+    "id": "abc-123abc-123abc-123abc-123abc-123abc-123",
     "action": "addBufferStreamKey",
     "buffer_stream_key": "buffer-stream-key",
     "publisher_id": "44d7985a-e41e-4d02-a772-a8f7c1c69124"
@@ -15,6 +16,7 @@ Service responsible for reading the buffers from the pre-processor and send them
 ### delBufferStreamKey
 ```json
 {
+    "id": "abc-123abc-123abc-123abc-123abc-123abc-123",
     "action": "delBufferStreamKey",
     "buffer_stream_key": "buffer-stream-key"
 }
@@ -22,6 +24,7 @@ Service responsible for reading the buffers from the pre-processor and send them
 ### updateControlFlow
 ```json
 {
+    "id": "abc-123abc-123abc-123abc-123abc-123abc-123",
     "action": "updateControlFlow",
     "control_flow": {
         "some-publisher-id-1": [
@@ -55,12 +58,12 @@ Annotate the input data events with the following fields:
     "data_flow": [
             ["dest1", "dest2"], // first step
             ["dest3"],          // second step
-            ["graph-builder"]   // final step
+            ["matcher"]   // final step
         ],
     "data_path": [],
 }
 ```
-Where, data_flow is the complete data-flow for this event.
+Where, data_flow is the complete data-flow for this event (based on the control flow sent by the Query Planner).
 And data_path is the ongoing process (whenever it gets into a new destination in the data-flow, it will update data_path, in order to have the current destination in there).
 The data events are dispatched to the destinations in the first step on the dataflow.
 
