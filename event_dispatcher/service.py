@@ -22,6 +22,7 @@ class EventDispatcher(BaseTracerService):
             tracer=tracer,
         )
         del self.service_stream
+        self.service_stream_key = service_stream_key
         self.events_consumer_group_name = f'cg-{service_stream_key}'
         # always have EVENT_DISPATCHER_STREAM_KEY as a input stream source
         # and also the namespace buffers key as inputs as well
@@ -93,23 +94,27 @@ class EventDispatcher(BaseTracerService):
     def get_destination_streams(self, destination):
         return self.stream_factory.create(destination, stype='streamOnly')
 
-    def dispatch(self, event_data, control_flow):
+    def dispatch(self, event_data):
         """
-        Create a event message with the informations about the data-flow (all destinations).
-        that is, a data-flow field, with all the data-flow for this event
-        And the path of the event (which should start empty,
-            and be filled whenever it passes through an data-flow point)
+        Start by dispatch the event to the correct next destinations,
+        and add the Event Dispatcher as the last service the event has passed through.
+        If it has no data_flow, then sent it to the scheduler.
         """
-        if len(control_flow) == 0:
+        data_flow = event_data.get('data_flow', [])
+        if data_flow is None or len(data_flow) == 0:
+            scheduler_stream = self.get_destination_streams('sc-data')
+            self.write_event_with_trace(event_data, scheduler_stream)
             return
-        next_step = control_flow[0]
-        data_flow = control_flow
-        event_data.update({
-            'data_flow': data_flow,
-            'data_path': [],
-        })
+        data_path = event_data.get('data_path', [])
 
-        for destination in next_step:
+        data_path.append(self.service_stream_key)
+        next_data_flow_i = len(data_path)
+        if next_data_flow_i >= len(data_flow):
+            self.logger.info(f'Ignoring event without a next destination available: {event_data}')
+            return
+
+        next_destinations = data_flow[next_data_flow_i]
+        for destination in next_destinations:
             destination_stream = self.get_destination_streams(destination)
             self.write_event_with_trace(event_data, destination_stream)
 
@@ -130,11 +135,14 @@ class EventDispatcher(BaseTracerService):
     def process_data_event(self, event_data, json_msg):
         if not super(EventDispatcher, self).process_data_event(event_data, json_msg):
             return False
-        stream_key = event_data['buffer_stream_key']
-        control_flow = self.get_control_flow_for_stream_key(stream_key)
-
+        # stream_key = event_data['buffer_stream_key']
+        # control_flow = self.get_control_flow_for_stream_key(stream_key)
+        # hacky hack. Hardcoded the scheduler data stream.
+        control_flow = event_data.get('data_flow')
+        if control_flow is None:
+            control_flow = ['sc-data']
         self.log_dispatched_events(event_data, control_flow)
-        self.dispatch(event_data, control_flow)
+        self.dispatch(event_data)
 
     def process_data(self):
         stream_sources_events = list(self.all_events_consumer_group.read_stream_events_list(count=1))
@@ -149,9 +157,10 @@ class EventDispatcher(BaseTracerService):
                 event_id, json_msg = event_tuple
                 try:
                     event_data = self.default_event_deserializer(json_msg)
-                    event_data.update({
-                        'buffer_stream_key': stream_key
-                    })
+                    if 'buffer_stream_key' not in event_data:
+                        event_data.update({
+                            'buffer_stream_key': stream_key
+                        })
                     self.process_data_event_wrapper(event_data, json_msg)
                 except Exception as e:
                     self.logger.error(f'Error processing {json_msg}:')
