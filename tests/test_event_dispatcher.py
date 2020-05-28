@@ -157,43 +157,6 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.service.process_data()
         self.assertTrue(mocked_dispatch.called)
         self.assertEqual(mocked_dispatch.call_count, 2)
-        self.assertTrue(mocked_control_flow.called)
-        self.assertEqual(mocked_dispatch.call_count, 2)
-
-    def test_dispatch_should_write_events_to_next_step_streams_in_control_flow(self):
-        input_event_schema = EventDispatcherBaseEventMessage(id='1', publisher_id='publisher_id1', source='source1')
-        event_data = input_event_schema.dict.copy()
-        self.stream_factory.mocked_dict['dest1'] = []
-        self.stream_factory.mocked_dict['dest2'] = []
-        # mocked_destination_streams.side_effect = lambda x: self.stream_factory.create(x)
-        control_flow = [['dest1', 'dest2'], ['dest3'], ['dest4']]
-        original_stream_keys = set(self.stream_factory.mocked_dict.keys())
-        expected_stream_keys = original_stream_keys.copy()
-        expected_stream_keys.add('dest1')
-        expected_stream_keys.add('dest2')
-        expected_event_msg = {
-            'event': (
-                '{"id": "1", "publisher_id": "publisher_id1", "source": "source1", '
-                '"data_flow": [["dest1", "dest2"], ["dest3"], ["dest4"]], "data_path": [], '
-                '"tracer": {"headers": {}}}'
-            )
-        }
-
-        self.service.dispatch(event_data, control_flow)
-        final_stream_keys = set(self.stream_factory.mocked_dict.keys())
-        self.assertEqual(expected_stream_keys, final_stream_keys)
-        self.assertListEqual(self.stream_factory.mocked_dict['dest1'], [expected_event_msg])
-        self.assertListEqual(self.stream_factory.mocked_dict['dest2'], [expected_event_msg])
-
-    def test_dispatch_should_should_do_nothing_if_no_control_flow(self):
-        input_event_schema = EventDispatcherBaseEventMessage(id='1', publisher_id='publisher_id1', source='source1')
-        event_data = input_event_schema.dict.copy()
-        control_flow = []
-        original_stream_keys = set(self.stream_factory.mocked_dict.keys())
-        expected_stream_keys = original_stream_keys.copy()
-        self.service.dispatch(event_data, control_flow)
-        final_stream_keys = set(self.stream_factory.mocked_dict.keys())
-        self.assertEqual(expected_stream_keys, final_stream_keys)
 
     @patch('event_dispatcher.service.EventDispatcher.update_control_flow')
     def test_process_action_should_call_update_control_flow(self, mocked_update_control_flow):
