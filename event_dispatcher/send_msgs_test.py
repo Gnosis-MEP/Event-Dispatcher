@@ -6,7 +6,6 @@ from event_service_utils.streams.redis import RedisStreamFactory
 from event_dispatcher.conf import (
     REDIS_ADDRESS,
     REDIS_PORT,
-    SERVICE_CMD_KEY,
 )
 
 
@@ -102,13 +101,12 @@ def send_msgs(service_stream, publisher_id):
 
 def main():
     stream_factory = RedisStreamFactory(host=REDIS_ADDRESS, port=REDIS_PORT)
-    service_cmd = stream_factory.create(SERVICE_CMD_KEY, stype='streamOnly')
-    buffer_1 = stream_factory.create('d9a090de77d717758c950aa987602fe4', stype='streamOnly')
+    buffer_1 = stream_factory.create('f79681aaa510938aca8c60506171d9d8', stype='streamOnly')
     buffer_2 = stream_factory.create('buffer2', stype='streamOnly')
-    send_cmds(service_cmd)
+    # send_cmds(service_cmd)
     import ipdb; ipdb.set_trace()
     send_msgs(buffer_1, '44d7985a-e41e-4d02-a772-a8f7c1c69124')
-    send_msgs(buffer_2, 'publisher2')
+    # send_msgs(buffer_2, 'publisher2')
 
 
 if __name__ == '__main__':

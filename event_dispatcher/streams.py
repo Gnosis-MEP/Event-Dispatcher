@@ -22,8 +22,8 @@ class ManyKeyConsumerGroup():
 
 class RedisStreamFactory(BaseRedisFactory):
 
-    def create(self, key, stype='streamAndConsumer'):
-        stream = super(RedisStreamFactory, self).create(key, stype)
+    def create(self, key, stype='streamAndConsumer', cg_id=None):
+        stream = super(RedisStreamFactory, self).create(key, stype, cg_id=cg_id)
         if stream:
             return stream
         elif stype == 'manyKeyConsumer':
