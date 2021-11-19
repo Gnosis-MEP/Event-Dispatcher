@@ -1,33 +1,38 @@
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
-from event_service_utils.tests.base_test_case import MockedServiceStreamTestCase
+from event_service_utils.tests.base_test_case import MockedEventDrivenServiceStreamTestCase
 from event_service_utils.tests.json_msg_helper import prepare_event_msg_tuple
 
 from mocked_streams import ManyKeyConsumerMockedStreamFactory
 
-from event_dispatcher.service import EventDispatcher
 
-from event_dispatcher.schemas import (
-    EventDispatcherBaseEventMessage,
-)
+from event_dispatcher.service import EventDispatcher
 
 from event_dispatcher.conf import (
     SERVICE_STREAM_KEY,
-    SERVICE_CMD_KEY,
+    SERVICE_CMD_KEY_LIST,
+    SERVICE_DETAILS,
+    PUB_EVENT_LIST,
 )
 
 
-class TestEventDispatcher(MockedServiceStreamTestCase):
+class TestEventDispatcher(MockedEventDrivenServiceStreamTestCase):
     GLOBAL_SERVICE_CONFIG = {
         'service_stream_key': SERVICE_STREAM_KEY,
-        'service_cmd_key': SERVICE_CMD_KEY,
+        'service_cmd_key_list': SERVICE_CMD_KEY_LIST,
+        'pub_event_list': PUB_EVENT_LIST,
+        'service_details': SERVICE_DETAILS,
         'logging_level': 'ERROR',
         'tracer_configs': {'reporting_host': None, 'reporting_port': None},
     }
     SERVICE_CLS = EventDispatcher
+
+    MOCKED_CG_STREAM_DICT = {
+
+    }
     MOCKED_STREAMS_DICT = {
         SERVICE_STREAM_KEY: [],
-        SERVICE_CMD_KEY: [],
+        'cg-EventDispatcher': MOCKED_CG_STREAM_DICT,
     }
 
     def _mocked_event_message(self, schema_cls, **kwargs):
@@ -37,62 +42,92 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
     def prepare_mocked_stream_factory(self, mocked_dict):
         self.stream_factory = ManyKeyConsumerMockedStreamFactory(mocked_dict=self.mocked_streams_dict)
 
-    @patch('event_dispatcher.service.EventDispatcher.process_action')
-    def test_process_cmd_should_call_process_action(self, mocked_process_action):
-        action = 'someAction'
+    @patch('event_dispatcher.service.EventDispatcher.process_event_type')
+    def test_process_cmd_should_call_process_event_type(self, mocked_process_event_type):
+        event_type = 'SomeEventType'
+        unicode_event_type = event_type.encode('utf-8')
         event_data = {
-            'id': '1',
-            'action': action,
+            'id': 1,
+            'action': event_type,
             'some': 'stuff'
         }
         msg_tuple = prepare_event_msg_tuple(event_data)
-        mocked_process_action.__name__ = 'process_action'
+        mocked_process_event_type.__name__ = 'process_event_type'
 
-        self.service.service_cmd.mocked_values = [msg_tuple]
-        self.service.process_cmd()
-        self.assertTrue(mocked_process_action.called)
-        self.service.process_action.assert_called_once_with(action=action, event_data=event_data, json_msg=msg_tuple[1])
-
-    @patch('event_dispatcher.service.EventDispatcher.add_buffer_stream_key')
-    def test_process_action_should_call_add_buffer_stream_key(self, mocked_add_buffer_stream_key):
-        action = 'addBufferStreamKey'
-        query_data = {
-            'id': '1',
-            'buffer_stream_key': 'unique-buffer-key',
-            'publisher_id': 'publisher1'
+        self.service.service_cmd.mocked_values_dict = {
+            unicode_event_type: [msg_tuple]
         }
-        event_data = query_data.copy()
-        event_data.update({
-            'action': action,
-        })
-        msg_tuple = prepare_event_msg_tuple(event_data)
-
-        self.service.service_cmd.mocked_values = [msg_tuple]
         self.service.process_cmd()
-        self.assertTrue(mocked_add_buffer_stream_key.called)
+        self.assertTrue(mocked_process_event_type.called)
+        self.service.process_event_type.assert_called_once_with(event_type=event_type, event_data=event_data, json_msg=msg_tuple[1])
+
+    @patch('event_dispatcher.service.EventDispatcher.update_publisher_service_chain')
+    @patch('event_dispatcher.service.EventDispatcher.add_buffer_stream_key')
+    def test_process_event_type_should_call_necessary_methods_correctly(self, mocked_add_buffer_stream_key, mocked_update_pub_chain):
+        event_data = {
+            'id': 1,
+            'subscriber_id': 'subscriber_id',
+            'query_id': 'query_id',
+            'parsed_query': {
+                'from': ['publisher_id'],
+                'content': ['ObjectDetection', 'ColorDetection'],
+                'window': {
+                    'window_type': 'TUMBLING_COUNT_WINDOW',
+                    'args': [2]
+                }
+            },
+            'buffer_stream': {
+                'publisher_id': 'publisher_id',
+                'buffer_stream_key': 'buffer_stream_key',
+                'source': 'source',
+                'resolution': "300x900",
+                'fps': "100",
+            },
+            'service_chain': ['service_chain'],
+        }
+        event_type = 'QueryCreated'
+        json_msg = prepare_event_msg_tuple(event_data)[1]
+        self.service.process_event_type(event_type, event_data, json_msg)
+
         mocked_add_buffer_stream_key.assert_called_once_with(
-            query_data['buffer_stream_key'],
-            query_data['publisher_id']
+            'buffer_stream_key',
+            'publisher_id'
+        )
+        mocked_update_pub_chain.assert_called_once_with(
+            'publisher_id',
+            ['service_chain']
         )
 
     @patch('event_dispatcher.service.EventDispatcher.del_buffer_stream_key')
     def test_process_action_should_call_del_buffer_stream_key(self, mocked_del_buffer_stream_key):
-        action = 'delBufferStreamKey'
-        query_data = {
-            'id': '1',
-            'buffer_stream_key': 'unique-buffer-key',
+        event_data = {
+            'id': 1,
+            'subscriber_id': 'subscriber_id',
+            'query_id': 'query_id',
+            'parsed_query': {
+                'from': ['publisher_id'],
+                'content': ['ObjectDetection', 'ColorDetection'],
+                'window': {
+                    'window_type': 'TUMBLING_COUNT_WINDOW',
+                    'args': [2]
+                }
+            },
+            'buffer_stream': {
+                'publisher_id': 'publisher_id',
+                'buffer_stream_key': 'buffer_stream_key',
+                'source': 'source',
+                'resolution': "300x900",
+                'fps': "100",
+            },
+            'service_chain': ['service_chain'],
+            'deleted': True,
         }
-        event_data = query_data.copy()
-        event_data.update({
-            'action': action,
-        })
-        msg_tuple = prepare_event_msg_tuple(event_data)
+        event_type = 'QueryRemoved'
+        json_msg = prepare_event_msg_tuple(event_data)[1]
+        self.service.process_event_type(event_type, event_data, json_msg)
 
-        self.service.service_cmd.mocked_values = [msg_tuple]
-        self.service.process_cmd()
-        self.assertTrue(mocked_del_buffer_stream_key.called)
         mocked_del_buffer_stream_key.assert_called_once_with(
-            query_data['buffer_stream_key'],
+            'buffer_stream_key',
         )
 
     @patch('event_dispatcher.service.EventDispatcher._update_all_events_consumer_group')
@@ -124,61 +159,7 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
         self.service._update_all_events_consumer_group()
         self.assertEqual(self.service.all_events_consumer_group.keys, list(stream_to_publisher_id_map.keys()))
 
-    @patch('event_dispatcher.service.EventDispatcher.get_control_flow_for_stream_key')
-    @patch('event_dispatcher.service.EventDispatcher.dispatch')
-    def test_process_data_should_call_dispatch_events_and_get_control_flow(self, mocked_dispatch, mocked_control_flow):
-        mocked_stream_sources = {
-            'buffer1': [
-                self._mocked_event_message(
-                    EventDispatcherBaseEventMessage, id='1', publisher_id='publisher_id1', source='source1'
-                ),
-                self._mocked_event_message(
-                    EventDispatcherBaseEventMessage, id='2', publisher_id='publisher_id1', source='source1'
-                ),
-            ],
-            'buffer2': [
-                self._mocked_event_message(
-                    EventDispatcherBaseEventMessage, id='3', publisher_id='publisher_id2', source='source1'
-                ),
-                self._mocked_event_message(
-                    EventDispatcherBaseEventMessage, id='4', publisher_id='publisher_id2', source='source1'
-                ),
-                self._mocked_event_message(
-                    EventDispatcherBaseEventMessage, id='5', publisher_id='publisher_id2', source='source1'
-                ),
-            ]
-        }
-        self.service.stream_sources = set(mocked_stream_sources.keys())
-        self.service._update_all_events_consumer_group()
-        self.service.all_events_consumer_group._update_mocked_values(mocked_stream_sources)
-
-        mocked_control_flow.return_value = []
-        mocked_dispatch.__name__ = 'dispatch'
-        self.service.process_data()
-        self.assertTrue(mocked_dispatch.called)
-        self.assertEqual(mocked_dispatch.call_count, 2)
-
-    @patch('event_dispatcher.service.EventDispatcher.update_control_flow')
-    def test_process_action_should_call_update_control_flow(self, mocked_update_control_flow):
-        action = 'updateControlFlow'
-        query_data = {
-            'id': '1',
-            'control_flow': []
-        }
-        event_data = query_data.copy()
-        event_data.update({
-            'action': action,
-        })
-        msg_tuple = prepare_event_msg_tuple(event_data)
-
-        self.service.service_cmd.mocked_values = [msg_tuple]
-        self.service.process_cmd()
-        self.assertTrue(mocked_update_control_flow.called)
-        mocked_update_control_flow.assert_called_once_with(
-            query_data['control_flow'],
-        )
-
-    def test_update_control_flow_should_change_data_flow_for_necessary_publisher_ids(self):
+    def test_update_publisher_service_chain_should_change_service_chain_for_the_given_query_publisher(self):
         self.service.publisher_id_to_control_flow_map = {
             'publisher-id-1': [
                 ['model-a'],
@@ -189,21 +170,10 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
                 ['graph-builder']
             ]
         }
-        control_flow = {
-            'publisher-id-1': [
-                ['model-a'],
-                ['model-b', 'model-c'],
-                ['graph-builder']
-            ],
-            'publisher-id-3': [
-                ['model-a'],
-                ['graph-builder']
-            ]
-        }
+
         expected_dict = {
             'publisher-id-1': [
                 ['model-a'],
-                ['model-b', 'model-c'],
                 ['graph-builder']
             ],
             'publisher-id-2': [
@@ -215,7 +185,12 @@ class TestEventDispatcher(MockedServiceStreamTestCase):
                 ['graph-builder']
             ]
         }
-        self.service.update_control_flow(control_flow)
+        service_chain = [
+            'model-a',
+            'graph-builder'
+        ]
+        publisher_id = 'publisher-id-3'
+        self.service.update_publisher_service_chain(publisher_id, service_chain)
         self.assertDictEqual(expected_dict, self.service.publisher_id_to_control_flow_map)
 
     def test_get_control_flow_for_stream_key_should_return_correct_control_flow(self):

@@ -1,13 +1,14 @@
 import threading
 
 from event_service_utils.logging.decorators import timer_logger
-from event_service_utils.services.tracer import BaseTracerService
+from event_service_utils.services.event_driven import BaseEventDrivenCMDService
 from event_service_utils.tracing.jaeger import init_tracer
 
 
-class EventDispatcher(BaseTracerService):
+class EventDispatcher(BaseEventDrivenCMDService):
     def __init__(self,
-                 service_stream_key, service_cmd_key,
+                 service_stream_key, service_cmd_key_list,
+                 pub_event_list, service_details,
                  stream_factory,
                  logging_level,
                  tracer_configs):
@@ -16,7 +17,9 @@ class EventDispatcher(BaseTracerService):
         super(EventDispatcher, self).__init__(
             name=self.__class__.__name__,
             service_stream_key=service_stream_key,
-            service_cmd_key=service_cmd_key,
+            service_cmd_key_list=service_cmd_key_list,
+            pub_event_list=pub_event_list,
+            service_details=service_details,
             stream_factory=stream_factory,
             logging_level=logging_level,
             tracer=tracer,
@@ -31,7 +34,7 @@ class EventDispatcher(BaseTracerService):
         self.publisher_id_to_control_flow_map = {}
         self.all_events_consumer_group = None
         self._update_all_events_consumer_group()
-        self.cmd_validation_fields = ['id', 'action']
+        self.cmd_validation_fields = ['id']
         self.data_validation_fields = ['id', 'publisher_id']
 
     def _update_all_events_consumer_group(self):
@@ -46,19 +49,19 @@ class EventDispatcher(BaseTracerService):
             self.all_events_consumer_group.block = 1
             return self.all_events_consumer_group
 
-    def update_control_flow(self, control_flow):
-        # control_flow = {
-        #     'publisher1': [
-        #         ['dest1', 'dest2'],
-        #         ['dest3']
-        #     ],
-        #     'publisher2': [
-        #         ['dest1', 'dest2'],
-        #         ['dest3']
-        #     ]
-        # }
-        for publisher_id, publisher_control_flow in control_flow.items():
-            self.publisher_id_to_control_flow_map[publisher_id] = publisher_control_flow
+    # def update_control_flow(self, control_flow):
+    #     # control_flow = {
+    #     #     'publisher1': [
+    #     #         ['dest1', 'dest2'],
+    #     #         ['dest3']
+    #     #     ],
+    #     #     'publisher2': [
+    #     #         ['dest1', 'dest2'],
+    #     #         ['dest3']
+    #     #     ]
+    #     # }
+    #     for publisher_id, publisher_control_flow in control_flow.items():
+    #         self.publisher_id_to_control_flow_map[publisher_id] = publisher_control_flow
 
     def add_buffer_stream_key(self, key, publisher_id):
         self.stream_to_publisher_id_map[key] = publisher_id
@@ -69,18 +72,26 @@ class EventDispatcher(BaseTracerService):
             del self.stream_to_publisher_id_map[key]
         self._update_all_events_consumer_group()
 
-    def process_action(self, action, event_data, json_msg):
-        if not super(EventDispatcher, self).process_action(action, event_data, json_msg):
+    def update_publisher_service_chain(self, publisher_id, service_chain):
+
+        # right now cant really handle well parallel processing
+        # (so only consider that service chain) will be of a list of one service for each element
+        self.publisher_id_to_control_flow_map[publisher_id] = [[s] for s in service_chain]
+
+    def process_event_type(self, event_type, event_data, json_msg):
+        if not super(EventDispatcher, self).process_event_type(event_type, event_data, json_msg):
             return False
-        if action == 'updateControlFlow':
-            control_flow = event_data['control_flow']
-            self.update_control_flow(control_flow)
-        elif action == 'addBufferStreamKey':
-            key = event_data['buffer_stream_key']
-            publisher_id = event_data['publisher_id']
+
+        if event_type == 'QueryCreated':
+            buffer_stream = event_data['buffer_stream']
+            key = buffer_stream['buffer_stream_key']
+            publisher_id = buffer_stream['publisher_id']
+            service_chain = event_data['service_chain']
             self.add_buffer_stream_key(key, publisher_id)
-        elif action == 'delBufferStreamKey':
-            key = event_data['buffer_stream_key']
+            self.update_publisher_service_chain(publisher_id, service_chain)
+        elif event_type == 'QueryRemoved':
+            buffer_stream = event_data['buffer_stream']
+            key = buffer_stream['buffer_stream_key']
             self.del_buffer_stream_key(key)
 
     def log_state(self):
