@@ -49,20 +49,6 @@ class EventDispatcher(BaseEventDrivenCMDService):
             self.all_events_consumer_group.block = 1
             return self.all_events_consumer_group
 
-    # def update_control_flow(self, control_flow):
-    #     # control_flow = {
-    #     #     'publisher1': [
-    #     #         ['dest1', 'dest2'],
-    #     #         ['dest3']
-    #     #     ],
-    #     #     'publisher2': [
-    #     #         ['dest1', 'dest2'],
-    #     #         ['dest3']
-    #     #     ]
-    #     # }
-    #     for publisher_id, publisher_control_flow in control_flow.items():
-    #         self.publisher_id_to_control_flow_map[publisher_id] = publisher_control_flow
-
     def add_buffer_stream_key(self, key, publisher_id):
         self.stream_to_publisher_id_map[key] = publisher_id
         self._update_all_events_consumer_group()
