@@ -27,8 +27,8 @@ class ManyKeyConsumerMockedStreamFactory(MockedStreamFactory):
     def __init__(self, mocked_dict):
         self.mocked_dict = mocked_dict
 
-    def create(self, key, stype=None):
+    def create(self, key, stype=None, cg_id=None):
         if stype == 'manyKeyConsumer':
             return ManyKeyConsumerGroupMocked(keys=key, mocked_values=self.mocked_dict)
         else:
-            return super(ManyKeyConsumerMockedStreamFactory, self).create(key=key, stype=stype)
+            return super(ManyKeyConsumerMockedStreamFactory, self).create(key=key, stype=stype, cg_id=cg_id)
